@@ -28,8 +28,6 @@ Paragraph or two introducing your datasets and variables, why they are interesti
 ```{R}
 income_time <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-02-09/income_time.csv')
 income_limits <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-02-09/income_limits.csv')
-income_time
-income_limits
 ```
 *The two datasets I have chosen are income_time and income_limits. Both datasets were found from https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-02-09/readme.md; income_time was originally derived from the Urban Institute and income_limits was originally derived from the US Census. income_time catalogs family-level income in the United States and contains variables for year, percentile, and family income (income_family). income_limits catalogs family income limits in the United States and contains variables for year, race, number of households by racial group (number), income quintile (income_quintile), and income limits for those quintiles in US dollars (income_dollars). In addition, there is a variable named dollar_type that specifies if income_dollars is normalized to 2019's economy (2019 Dollars) or in the year specified by the row's year value (Current Dollars).*
 
@@ -71,7 +69,6 @@ inner_join(income_time, income_limits, "year") %>% group_by(year) %>% summarize(
 
 ```{R}
 joinedSet = right_join(income_time, income_limits, "year")
-joinedSet
 ```
 
 *I chose to join income_time with income_limits using right_join with year as the ID since income_time contains the years 1963, 1965, and 1966 that are not shared with income_limits; there would be no values for race, dollar_type, number, income_quintile, or income_dollars for these years. Such a case would result in NAs; it was cleaner to keep all the rows from income_limits and add matching rows from income_time rather than the other way around.*
