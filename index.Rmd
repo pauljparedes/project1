@@ -1,7 +1,7 @@
 ---
 title: 'Project 1: Wrangling, Exploration, Visualization'
 author: "SDS322E"
-date: ''
+date: '11/1/2021'
 output:
   html_document:
     toc: yes
@@ -19,16 +19,21 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Paul Paredes (pjp849)
 
 #### Introduction 
 
 Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
 
 ```{R}
-# read your datasets in here, e.g., with read_csv()
-
+income_time <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-02-09/income_time.csv')
+income_limits <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-02-09/income_limits.csv')
+income_time
+income_limits
 ```
+*The two datasets I have chosen are income_time and income_limits. Both datasets were found from https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-02-09/readme.md; income_time was originally derived from the Urban Institute and income_limits was originally derived from the US Census. income_time catalogs family-level income in the United States and contains variables for year, percentile, and family income (income_family). income_limits catalogs family income limits in the United States and contains variables for year, race, number of households by racial group (number), income quintile (income_quintile), and income limits for those quintiles in US dollars (income_dollars). In addition, there is a variable named dollar_type that specifies if income_dollars is normalized to 2019's economy (2019 Dollars) or in the year specified by the row's year value (Current Dollars).*
+
+*I chose these datasets since I am interested in to what extent the United States has changed over the past few decades both in housing numbers and in family income. I definitely expect there to be more housing as the years pass since a healthy nation's population is (usually) always growing. In addition, I expect overall increases in income limits and family income due to both general economic growth as well as inflation.*
 
 #### Tidying: Reshaping
 
@@ -37,55 +42,94 @@ If your datasets are tidy already, demonstrate that you can reshape data with pi
 ```{R}
 # your tidying code (if applicable; can also wait until wrangling section)
 ```
-
+*The datasets are tidy already. For the summary table for income_dollars, I made it longer with pivot_longer by piping the summary statistics into the function and using Summary Statistics and Value as their own columns. Since I added one more summary statistic than usual for that particular table, it was a bit too wide.*
     
 #### Joining/Merging
 
 ```{R}
-# your joining code
+income_time %>% summarize(n())
+income_limits %>% summarize(n())
+```
+*There are 156 observations for income_time and 3090 for income_limits.*
 
-# your joining code
+```{R}
+income_time %>% summarize(n_distinct(year))
+income_limits %>% summarize(n_distinct(year))
+```
+*There are 52 unique IDs (years) in income_time and 53 for income_limits.*
+
+```{R}
+anti_join(income_time, income_limits, "year") %>% select(year)
+glimpse(income_time)
+```
+*The years 1963, 1965, and 1966 are IDs that appear in income_time but not in income_limits.*
+
+```{R}
+inner_join(income_time, income_limits, "year") %>% group_by(year) %>% summarize(n())
+```
+*The years 1967 to 2016 are IDs both datasets have in common.*
+
+```{R}
+joinedSet = right_join(income_time, income_limits, "year")
+joinedSet
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+*I chose to join income_time with income_limits using right_join with year as the ID since income_time contains the years 1963, 1965, and 1966 that are not shared with income_limits; there would be no values for race, dollar_type, number, income_quintile, or income_dollars for these years. Such a case would result in NAs; it was cleaner to keep all the rows from income_limits and add matching rows from income_time rather than the other way around.*
+
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+library(knitr)
+cleanJoinedSet= joinedSet %>% filter(complete.cases(joinedSet))  # to remove rows containing NA and clean up dataset
 
-# your wrangling code
 
-# your wrangling code
+cleanJoinedSet %>% summarize(mean = mean(year), standardDeviation = sd(year), variance = var(year), maximum = max(year), distinctObservations = n_distinct(year)) %>% kable(caption = "Year") # for year
+
+cleanJoinedSet %>% group_by(percentile) %>% summarize(count = n()) # for percentile
+
+cleanJoinedSet %>% group_by(race) %>% summarize(mean = mean(income_family), standardDeviation = sd(income_family), variance = var(income_family), maximum = max(income_family), distinctObservations = n_distinct(income_family)) %>% kable(caption = "Family Income") # for income_family
+
+cleanJoinedSet %>% group_by(race) %>% summarize(count = n()) %>% arrange(count) # for race
+
+cleanJoinedSet %>% group_by(dollar_type) %>% summarize(count = n()) # for dollar_type
+
+cleanJoinedSet %>% group_by(race, percentile) %>% summarize(mean = mean(number), standardDeviation = sd(number), variance = var(number), maximum = max(number), distinctObservations = n_distinct(number)) %>% kable(caption = "Number of Households") # for number
+
+cleanJoinedSet %>% group_by(income_quintile) %>% summarize(count = n()) # for income_quintile
+
+se = function(x) sd(x)/sqrt(n()) #function for standard error
+
+cleanJoinedSet %>% filter(str_detect(dollar_type, "2019")) %>% group_by(income_quintile) %>% summarize(mean = mean(income_dollars), standardDeviation = sd(income_dollars), variance = var(income_dollars), maximum = max(income_dollars), standardError = se(income_dollars), distinctObservations = n_distinct(income_dollars)) %>% pivot_longer(-1, names_to="Summary Statistics", values_to="Value") %>% kable(caption = "Income Limit") # for income_dollars, filter is so that income limit is in contemporary currency 
+
+glimpse(cleanJoinedSet %>% select(income_family, "households"=number) %>% mutate(standardErrorIncomeFamily = se(income_family))) # to show how to rename a column using select and how to add a column using mutate
 ```
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+*NA values were removed from joinedSet and the now-clean dataset was saved as cleanJoinedSet. Five summary statistics (mean, standard deviation, variance, maximum value, and distinct observations) were taken for each numerical variable in cleanJoinedSet: year, income_family, number, and income_dollars. income_dollars also had an extra summary statistic taken: standard error. The categorical variables (percentile, race, dollar_type, income_quantile) were counted in a table.*
+
+*One interesting finding is that the mean number of households per race over the past few decades is lower for Asians at 5,152,633 than any other racial group. This could be indicative of demographics in the United States: that those who are Asian alone are heavily outnumbered in America among the racial groups included in the dataset.*
 
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+ggplot(data = cleanJoinedSet, aes(x = year, y = number)) + geom_point(size=0.5) + geom_line(aes(color = race)) + theme_minimal() + xlab("Year") + ylab("Number of Houses per Racial Group") + ggtitle("Households by Racial Group Over Time in the United States") + theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
-Your discussion of plot 1
+*The plot shows variable number vs. variable year. It is apparent that, as predicted from the start, the number of households per racial group consistently increases as the years go by. In addition, the Hispanic population has as many households as African Americans just recently (around 2010) as can be seen by their lines intersecting.*
 
 ```{R}
-# your plot 2
+ggplot(cleanJoinedSet, aes(x=year, fill=dollar_type)) + geom_bar(aes(y = income_dollars, position = "fill"), stat="summary", fun=mean) + xlab("Year") + ylab("Income Limit in Dollars") + ggtitle("Income Limit in the United States Over Time") +  theme(axis.text.x = element_text(angle=45, hjust=1)) + theme_dark()
 ```
 
-Your discussion of plot 2
+*The plot shows variable income_dollars vs variable year. As the years pass, the income limit for each quintile has also risen.*
 
 ```{R}
-# your plot 3
+ggplot(data = cleanJoinedSet, aes(x = year, y = income_family)) + geom_point(size=0.5) +  theme_classic() + xlab("Year") + ylab("Familial Income in Dollars") + ggtitle("Familial Income in the United States Over Time") + theme(axis.text.x = element_text(angle=45, hjust=1)) + scale_y_continuous(breaks=seq(0,200000,25000)) + geom_line(aes(color = percentile))
 ```
 
-Your discussion of plot 3
+*The plot shows variable income_family vs variable year. While familial income has increased overall throughout the years for the 90th percentile, the 50th and 10th percentiles show very little change. This could be indicative of growing wealth inequality between average or poor American citizens and the affluent.*
 
 #### Concluding Remarks
 
 If any!
-
-
-
-
